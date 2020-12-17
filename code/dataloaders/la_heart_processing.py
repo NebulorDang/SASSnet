@@ -14,11 +14,13 @@ def covert_h5():
         label = (label == 255).astype(np.uint8)
         w, h, d = label.shape
 
+        #找出有值的边界
         tempL = np.nonzero(label)
         minx, maxx = np.min(tempL[0]), np.max(tempL[0])
         miny, maxy = np.min(tempL[1]), np.max(tempL[1])
         minz, maxz = np.min(tempL[2]), np.max(tempL[2])
 
+        #随机填充,如果超出原始尺寸，那么以原始尺寸为准
         px = max(output_size[0] - (maxx - minx), 0) // 2
         py = max(output_size[1] - (maxy - miny), 0) // 2
         pz = max(output_size[2] - (maxz - minz), 0) // 2

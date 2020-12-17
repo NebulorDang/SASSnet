@@ -12,6 +12,9 @@ def compute_dtm(img_gt, out_shape, normalize=False, fg=False):
     dtm(x) = 0; x in segmentation boundary
              inf|x-y|; x in segmentation
     """
+    #inf最小上界(不小于它最大值的值,都是它的上界)
+    #这里与sdf矛盾,这里在seg之内为正的,图像的长宽之差的绝对值正好是最小上界
+
 
     fg_dtm = np.zeros(out_shape)
 
@@ -53,6 +56,10 @@ def hd_loss(seg_soft, gt, gt_dtm=None, one_side=True, seg_dtm=None):
     delta_s = (seg_soft - gt.float()) ** 2
     g_dtm = gt_dtm ** 2
     dtm = g_dtm if one_side else g_dtm + seg_dtm ** 2
+
+    #将gt与pre的结果先分别计算出dtm,再以其为直角边计算第三边长当为豪斯多夫距离
+    #delta_s对hausdorff距离加权,与groud
+
     multipled = torch.einsum('bxyz, bxyz->bxyz', delta_s, dtm)
     # hd_loss = multipled.sum()*1.0/(gt_dtm > 0).sum()
     hd_loss = multipled.mean()

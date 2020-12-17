@@ -92,7 +92,6 @@ def softmax_kl_loss(input_logits, target_logits, sigmoid=False):
         input_log_softmax = F.log_softmax(input_logits, dim=1)
         target_softmax = F.softmax(target_logits, dim=1)
 
-
     # return F.kl_div(input_log_softmax, target_softmax)
     kl_div = F.kl_div(input_log_softmax, target_softmax, reduction='none')
     # mean_kl_div = torch.mean(0.2*kl_div[:,0,...]+0.8*kl_div[:,1,...])
@@ -115,6 +114,11 @@ class FocalLoss(nn.Module):
         super(FocalLoss, self).__init__()
         self.gamma = gamma
         self.alpha = alpha
+        # 如果alpha为一个浮点数和整数,那么直接返回一个长度为2的数组,如果不是数组则转为一个长度为2的数组
+        # Focalloss中由于正样本占比小为了减小简单负样本的影响
+        # 采用gamma作为指数,但是由于gamma较大时负样本的影响能力已经被削弱了
+        # 所以应该采用一个alpha来相应的削弱正样本的影响
+      
         if isinstance(alpha,(float,int)): self.alpha = torch.Tensor([alpha,1-alpha])
         if isinstance(alpha,list): self.alpha = torch.Tensor(alpha)
         self.size_average = size_average
@@ -127,14 +131,28 @@ class FocalLoss(nn.Module):
         target = target.view(-1,1)
 
         logpt = F.log_softmax(input, dim=1)
+
+        # 这里因为第1维为Class维度,而target中的元素只可能为0或者1,所以output[i][j] = input[i][target[i][j]]
+        # target[i][j]正好是类别的值0或者1,所以采用gather函数
+
         logpt = logpt.gather(1,target)
         logpt = logpt.view(-1)
+
+        # 这里用data先剥离出来再用Variable嵌入到计算图中，
+        # 目的是对对数做exp运算的过程中避免计算梯度累加到logpt上
         pt = Variable(logpt.data.exp())
 
         if self.alpha is not None:
             if self.alpha.type()!=input.data.type():
+                # 这里需要用.data或者.detatch()从计算图中剥离出来,避免input由于取类型的操作产生错误的梯度
                 self.alpha = self.alpha.type_as(input.data)
+
+            # output[i][j] = input[target[i][j]][j]
+            # target[i][j]正好是类别的值0或者1,0代表正样本则使用alpha,1代表负样本则使用1-alpha
+            # 所以gather的维度为0
             at = self.alpha.gather(0,target.data.view(-1))
+
+            # 为什么alpha需要梯度呢?Variable不能与非Variable相乘么
             logpt = logpt * Variable(at)
 
         loss = -1 * (1-pt)**self.gamma * logpt

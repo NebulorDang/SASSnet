@@ -109,6 +109,7 @@ class RandomCrop(object):
         h1 = np.random.randint(0, h - self.output_size[1])
         d1 = np.random.randint(0, d - self.output_size[2])
 
+        #此处是随机裁剪
         label = label[w1:w1 + self.output_size[0], h1:h1 + self.output_size[1], d1:d1 + self.output_size[2]]
         image = image[w1:w1 + self.output_size[0], h1:h1 + self.output_size[1], d1:d1 + self.output_size[2]]
         if self.with_sdf:

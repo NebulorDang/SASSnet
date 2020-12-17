@@ -11,6 +11,9 @@ from skimage.measure import label
 def getLargestCC(segmentation):
     labels = label(segmentation)
     assert( labels.max() != 0 ) # assume at least 1 CC
+    #取[1:]应该是除去背景类,flat之后再bincount再argmax得到一个标量
+    #这里的+1运算优先级高于==,最后得到的是一个真值矩阵,这里之所以+1是因为去除了背景类,
+    #所有类的索引都会-1,所以需要+1抵消掉
     largestCC = labels == np.argmax(np.bincount(labels.flat)[1:])+1
     return largestCC
 
@@ -79,6 +82,8 @@ def test_single_case(net, image, stride_xy, stride_z, patch_size, num_classes=1)
         image = np.pad(image, [(wl_pad,wr_pad),(hl_pad,hr_pad), (dl_pad, dr_pad)], mode='constant', constant_values=0)
     ww,hh,dd = image.shape
 
+    #如果不够patch_size就进行填充,填充之后以下三个变量的值都为1,这样卷积核就只移动一次
+    #如果超过patch_size会有多次卷积核的移动
     sx = math.ceil((ww - patch_size[0]) / stride_xy) + 1
     sy = math.ceil((hh - patch_size[1]) / stride_xy) + 1
     sz = math.ceil((dd - patch_size[2]) / stride_z) + 1
@@ -86,6 +91,9 @@ def test_single_case(net, image, stride_xy, stride_z, patch_size, num_classes=1)
     score_map = np.zeros((num_classes, ) + image.shape).astype(np.float32)
     cnt = np.zeros(image.shape).astype(np.float32)
 
+    #这里由于不能把整个图像全部放入网络中,所以一个patch一个patch的放,用滑动窗口
+    #的方式在原图上取patch,这样滑动窗口会有重叠的部分,所以使用cnt来计数(被滑动窗口取到的次数)
+    #最后算socre_map的时候求取平均就可以解决
     for x in range(0, sx):
         xs = min(stride_xy*x, ww-patch_size[0])
         for y in range(0, sy):

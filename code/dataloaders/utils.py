@@ -197,13 +197,16 @@ def get_mc_dice(pred, gt, num=2):
     return total_dice
 
 def post_processing(prediction):
+    #填补空洞
     prediction = nd.binary_fill_holes(prediction)
+    #计算连同区域,lable_cc是连同区域的map,num_cc是连通区域像素的个数
     label_cc, num_cc = measure.label(prediction,return_num=True)
     total_cc = np.sum(prediction)
     measure.regionprops(label_cc)
     for cc in range(1,num_cc+1):
         single_cc = (label_cc==cc)
         single_vol = np.sum(single_cc)
+    #剔除过小的连通区域,如果小于总前景的20%直接剔除
         if single_vol/total_cc<0.2:
             prediction[single_cc]=0
 
